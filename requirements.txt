@@ -1,0 +1,16 @@
+ee
+flask
+flask-caching
+flask-cors
+gunicorn
+google-auth
+earthengine-api
+python-dotenv
+nltk
+pandas
+geopandas
+numpy
+plotly
+shapely
+google-api-python-client
+
