@@ -1,0 +1,2995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=0.68"/>
+  <title>SSTA | ISRO</title>
+
+  <!-- Leaflet CSS (if you're using a map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- Add Font Awesome link in the head of your HTML document -->  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Custom Javascript -->
+  <script src="../flaskapp/libs/leaflet.mask.js"></script>
+  <script src="https://unpkg.com/react/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@1.0.0"></script>
+  <script src="../flaskapp/libs/leaflet-image.js"></script>
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+  <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  
+
+  <!-- Custom Styles -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    /* Container for both maps (optional if they are siblings) */
+    #map-container {
+      position: relative;
+      width: 100%;
+      height: 84vh;
+    }
+
+    #map {
+      position: relative;
+      width: 100%;
+      height: 84vh;
+      margin: 0 auto;
+      border: 3px solid #d8e5f0;
+      padding: 0;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Main Leaflet map (should sit below Windy) */
+    #map {
+      z-index: 1; /* Base layer */
+    }
+
+    /* Windy map overlay */
+    #windy {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 84vh;
+      z-index: 400; /* On top of Leaflet tiles, below Leaflet controls */
+      opacity: 0.6;
+      display: none; /* Controlled via JS */
+      pointer-events: none; /* Optional: let Leaflet receive clicks */
+    }
+
+    /* Leaflet controls above everything */
+    .leaflet-top {
+      z-index: 1000 !important;
+    }
+
+    #concentration-modal {
+      grid-row: 1 / 2;     /* row 1 */
+      grid-column: 3 / 4;  /* column 3 */
+      
+      /* full size and styling */
+      width: 100%;
+      height: 100%;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      overflow: auto;
+      padding: 2px;
+    }
+
+
+
+    .layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr); /* 3 equal columns */
+      grid-template-rows: auto;               /* adjust as needed */
+      gap: 10px;
+      height: 100vh; /* or your preferred height */
+      padding: 10px;
+    }
+
+
+    /* Form Container Styling */
+    .form-container {
+      position: relative;
+      top: 0;
+      left: 0;
+      margin: 0;
+      width: 500px;
+      height: auto;
+      background-color: #fff;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      overflow: hidden;     /* Enables scrolling inside */
+      resize: none;         /* Manual resizing */
+      min-width: 250px;     /* Prevent shrinking too small */
+      min-height: 200px;    /* Prevent shrinking too small */
+      max-width: 90vw;      /* Prevent overflowing too much */
+      max-height: 90vh;     /* Prevent taking over the screen */
+      user-select: auto;    /* Prevent selection/dragging */
+      box-sizing: border-box;
+    }
+
+    /* Draggable Header */
+    .form-header {
+      padding: 10px;
+      cursor: grab;
+      background-color: #2196F3;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+      user-select: none;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    /* Form Content */
+    .form-content {
+      padding: 15px;
+    }
+
+    /* Resize Handle */
+    .resize-handle {
+      width: 15px;
+      height: 15px;
+      background: gray;
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      cursor: nwse-resize;
+      border-radius: 2px;
+    }
+
+    /* Legend Styling */
+    .legend {
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      font-family: Arial, sans-serif;
+      position: absolute;
+      bottom: 25px;
+      left: 25px;
+      z-index: 1000;
+      /* Above both maps */
+    }
+
+    .legend h4 {
+      margin: 0 0 5px;
+      font-size: 16px;
+    }
+
+    .legend .gradient {
+      width: 100%;
+      height: 20px;
+      background: linear-gradient(to right, blue, cyan, green, yellow, red);
+    }
+    .gradient2 {
+    width: 100%;
+    height: 20px;
+    background: linear-gradient(to right, #00ff00, #ffff00, #ff9933, #ff0000, #990066, #990000);
+    border: 1px solid #ccc;
+    margin-bottom: 5px;
+}
+.legend-box {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    margin-right: 8px;
+    border: 1px solid #999;
+    border-radius: 3px;
+}
+    .legend .labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+        font-size: 14px;
+      }
+
+      /* High-Medium-Low Legend Styling */
+      .legend-hml {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 5px;
+      }
+
+      select:disabled {
+        background-color: #f9f9f9;
+        color: #a0a0a0;
+        cursor: not-allowed;
+      }
+	  .info.legend {
+        background: white;
+        padding: 8px 10px;
+        font: 14px/18px Arial, Helvetica, sans-serif;
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        border-radius: 5px;
+        padding-right: 20px;
+      }
+
+      .info.legend i {
+        width: 18px;
+        height: 18px;
+        margin-right: 8px;
+        background: gray;
+        display: inline-block;
+        vertical-align: middle;
+        opacity: 0.9;
+        padding-right: 20px;
+      }
+
+      #chatbot-container {
+        position: fixed; /* Fixed to keep it anchored during scroll */
+        bottom: 0;     /* Distance from the bottom of the viewport */
+        left: 40;       /* Distance from the left edge */
+        width: 380px;
+        height: 200px;
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      #chat-messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        font-size: 0.875rem;
+        background-color: #f9fafb;
+      }
+
+      .chat-header {
+        padding: 0.75rem;
+        background-color: #2563eb;
+        color: white;
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+        font-size: 0.875rem;
+      }
+
+      .chat-input-container {
+        padding: 0.75rem;
+        border-top: 1px solid #e5e7eb;
+        background-color: white;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .loader {
+        font-style: italic;
+        color: #888;
+        padding: 10px;
+      } 
+
+      #concentration-chart {
+        width: 100% !important;
+        height: 100% !important; /* let layout height handle sizing */
+        overflow: hidden;
+      }
+
+      .chart-container {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        /*overflow: hidden;*/
+		overflow-x: hidden;
+		overflow-y: auto;
+        min-width: 0;
+        min-height: 0;
+        height: 300px; /* Set desired container height */
+      }
+  #chart1 .plot-container,
+  #chart2 .plot-container {
+    height: 100% !important;
+  }
+
+  #chart1,
+  #chart2 {
+    min-height: 300px;
+    position: relative;
+  }
+
+  .js-plotly-plot {
+    height: 100% !important;
+    width: 100% !important;
+  }
+
+
+  </style>
+  
+  <!-- Leaflet 1.4.0 (required by Windy) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+  
+  <!-- Correct Leaflet 1.4.0 version -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+  <!-- Leaflet + Windy scripts -->
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+  <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+
+</head>
+
+
+
+<body class="flex flex-col h-screen">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@1.0.0"></script>
+  <!-- Plotly.js v2.x (latest stable release) -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-polygon-mask"></script>
+
+  <!-- Header -->
+  <header class="bg-white text-blue-800 p-4 shadow-md">
+    <div class="container mx-auto flex flex-wrap items-center justify-between">
+      
+      <!-- Left section: Logo + Title -->
+      <div class="flex items-center space-x-20">
+        <!-- ISRO Logo + Title -->
+        <div class="flex items-center p-1">
+           <div class="flex items-center justify-start w-full pl-[2px]">
+			  <img
+			    src="{{ url_for('static', filename='nrsc-isro.png') }}"
+			    alt="NRSC–ISRO Logo"
+			    class="h-14 md:h-14 lg:h-18"
+			  />
+			</div>
+
+          <span class="text-base font-extrabold tracking-wide md:text-lg lg:text-lg whitespace-nowrap">
+  <span class="text-red-600">VAYU</span> –
+  <span class="text-red-600">V</span>isualisation and
+  <span class="text-red-600">A</span>nalytics platform for air qualit<span class="text-red-600">Y</span>
+  and p<span class="text-red-600">U</span>blic health over India
+</span>
+        </div>
+      </div>
+
+      <!-- Navigation + Right-Aligned Logos -->
+      <div class="flex items-center space-x-4 mt-2 md:mt-0">
+        <!-- Navigation with Icons -->
+        <nav class="flex space-x-4 text-sm">
+        </nav>
+        
+        <!-- Right-Aligned Logos -->
+        <div class="flex items-center space-x-4 ml-auto mr-1">
+  <div class="bg-white inline-block p-1">
+    <img
+      src="{{ url_for('static', filename='50_years_logo.png') }}"
+      alt="NRSC 50 Year Logo"
+      class="h-20"
+    />
+  </div>
+</div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Area : It has 1 Master containers with three columns: 1.Tab Container with Form inputs 2. Map Container -->
+   <main class="flex-grow relative w-screen overflow-hidden">
+    <!-- Master Container: 3-Column Layout -->
+    <div class="w-full px-4 py-4 ">
+      <div class="flex flex-col lg:flex-row gap-4">
+  
+        <!-- 🧩 Left Column: 1/3 Width, Stacked (Tabs + Chatbot) -->
+        <div class="lg:w-1/4 w-full flex lg:flex-row flex-col gap-2">
+  
+          <!-- 🔹 Tabs Form Container -->
+          <div class="bg-white p-4 rounded-lg shadow-md">
+            <!-- Tabs Header -->
+            <div class="flex mb-4 space-x-2">
+              <button class="tab-button bg-indigo-500 text-white px-3 py-1 rounded text-xs active" data-tab="tab1">Pollutant Concentration</button>
+              <button class="tab-button-2 bg-gray-200 text-gray-800 px-3 py-1 rounded text-xs" data-tab="tab2">Air Quality</button>
+              <button class="tab-button-3 bg-gray-200 text-gray-800 px-3 py-1 rounded text-xs" data-tab="tab3">Health Analysis</button>
+            </div>
+  
+            <!-- Tabs Body -->
+            <div class="tabs-body bg-white p-1 rounded-lg">
+              <!-- Tabs Content -->
+              <div class="bg-white p-3 rounded-lg shadow-md">
+                <!-- Tab 1: Location -->
+                <div class="tab-content" id="tab1" >
+                  <h2 class="text-sm font-semibold text-center text-gray-800 mb-4">Parameters for Pollutant Concentration</h2>
+                  <!-- <p class="text-xs text-gray-600 mb-4">Select a city or enter the latitude and longitude...</p> -->
+
+                  <!-- Location of the City, Boundary of the City and State side-by-side -->
+                  <div class="grid grid-cols-3 gap-3 mb-3">
+                    <!-- 📍 City Location-based Dropdown -->
+                    <div>
+                      <label class="text-xs text-gray-600">City / Location</label>
+                      <select id="city-location" name="city_location" class="w-full max-w-xs border text-xs p-1 rounded">
+                    
+                      </select>
+                    </div>
+
+                      <!-- 🔹 City Shape-based Dropdown -->
+                    <div>
+                      <label class="text-xs text-gray-600">City Boundary</label>
+                      <select id="city" name="city_shape" class="w-full max-w-xs border text-xs p-0.5 rounded">
+                        <option value="">Select the city</option>
+                          <option value="Ahmedabad">Ahmedabad</option>
+                          <option value="Bengaluru">Bengaluru</option>
+                          <option value="Bhopal">Bhopal</option>
+                          <option value="Chennai">Chennai</option>
+                          <option value="Hyderabad">Hyderabad</option>
+                          <option value="Indore">Indore</option>
+                          <option value="Jaipur">Jaipur</option>
+                          <option value="Kanpur">Kanpur</option>
+                          <option value="Kolkata">Kolkata</option>                          
+                          <option value="Lucknow">Lucknow</option>
+                          <option value="Mumbai">Mumbai</option>
+                          <option value="Nagpur">Nagpur</option>
+                          <option value="Navi_Mumbai">Navi Mumbai</option>
+                          <option value="DELHI">New_Delhi(NCR)</option>
+                          <option value="Patna">Patna</option>
+                          <option value="Pimpri_Chinchwad">Pimpri Chinchwad</option>
+                          <option value="Pune">Pune</option>
+                          <option value="Surat">Surat</option>
+                          <option value="Thane">Thane</option>
+                          <option value="Vadodara">Vadodara</option>
+                          <option value="Visakhapatnam">Visakhapatnam</option>
+                      </select>
+                    </div>
+
+                    <!-- State Dropdown -->
+                    <div id="state-block">
+                      <label class="text-xs text-gray-600">State/UT Boundary</label>
+                      <select id="state" name="state" class="w-full max-w-xs border text-xs p-0.5 rounded">
+                        <option value="">Select the State</option>
+                          <option value="AndhraPradesh">Andhra Pradesh</option>
+                          <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
+                          <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                          <option value="Assam">Assam</option>
+                          <option value="Bihar">Bihar</option>
+                          <option value="Chandigarh">Chandigarh</option>
+                          <option value="Chhattisgarh">Chhattisgarh</option>
+                          <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
+                          <option value="Delhi">Delhi</option>
+                          <option value="Goa">Goa</option>
+                          <option value="Gujarat">Gujarat</option>
+                          <option value="Haryana">Haryana</option>
+                          <option value="Himachal Pradesh">Himachal Pradesh</option>
+                          <option value="Jharkhand">Jharkhand</option>
+                          <option value="Jammu and Kashmir">Jammu and Kashmir</option>
+                          <option value="Karnataka">Karnataka</option>
+                          <option value="Kerala">Kerala</option>
+                          <option value="Ladakh">Ladakh</option>
+                          <option value="Lakshadweep">Lakshadweep</option>
+                          <option value="Madhya Pradesh">Madhya Pradesh</option>
+                          <option value="Maharashtra">Maharashtra</option>
+                          <option value="Manipur">Manipur</option>
+                          <option value="Meghalaya">Meghalaya</option>
+                          <option value="Mizoram">Mizoram</option>
+                          <option value="Nagaland">Nagaland</option>
+                          <option value="Odisha">Odisha</option>
+                          <option value="Puducherry">Puducherry</option>
+                          <option value="Punjab">Punjab</option>
+                          <option value="Rajasthan">Rajasthan</option>
+                          <option value="Sikkim">Sikkim</option>
+                          <option value="Tamil Nadu">Tamil Nadu</option>
+                          <option value="Telangana">Telangana</option>
+                          <option value="Tripura">Tripura</option>
+                          <option value="Uttar Pradesh">Uttar Pradesh</option>
+                          <option value="Uttarakhand">Uttarakhand</option>
+                          <option value="West Bengal">West Bengal</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <!-- Buffer and Reset Button side-by-side -->
+                  <div class="flex items-end gap-4 mt-2 mb-3">
+                    <!-- Buffer Radius -->
+                    <div id="buffer-container" class="flex-1">
+                      <label for="buffer" class="leading-7 text-xs text-gray-600">Buffer Radius (meters)</label>
+                      <input type="text" id="buffer" name="buffer" placeholder="Buffer distance"
+                        class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2 leading-6 transition-colors duration-200 ease-in-out"
+                        value="50000" />
+                    </div>
+
+                    <!-- Reset Button aligned right -->
+                    <button id="reset-dropdown-btn"
+                      class="ml-auto flex items-center gap-1 bg-gray-300 text-gray-800 px-3 py-2 rounded text-xs hover:bg-gray-400 transition-all duration-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 4v5h.582M19.418 19A9 9 0 105.582 5M20 20l-1.5-1.5" />
+                      </svg>
+                      Reset Selection
+                    </button>
+                  </div>
+
+
+                  <!-- Manual Coordinates -->
+                  <div id="manual-inputs" class="hidden">
+                    <div class="flex gap-3 mb-3">
+                      <!-- Latitude -->
+                      <div class="w-1/2">
+                        <label for="lat" class="leading-7 text-xs text-gray-600">Latitude</label>
+                        <input type="number" step="any" id="lat" name="lat" placeholder="e.g., 12.9716"
+                          class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2 leading-6 transition-colors duration-200 ease-in-out" />
+                      </div>
+                      
+                      <!-- Longitude -->
+                      <div class="w-1/2">
+                        <label for="lon" class="leading-7 text-xs text-gray-600">Longitude</label>
+                        <input type="number" step="any" id="lon" name="lon" placeholder="e.g., 77.5946"
+                          class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2 leading-6 transition-colors duration-200 ease-in-out" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Start and End Dates -->
+                   <!-- 🗓️ Start & End Dates Side-by-Side -->
+                  <div class="grid grid-cols-2 gap-3 mb-3">
+                    <!-- Start Date -->
+                    <div class="relative">
+                      <label for="start_date" class="text-xs text-gray-600 block mb-1">Start Date</label>
+                      <input type="date" id="start_date" name="start_date"
+                        class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2" />
+                    </div>
+
+                    <!-- End Date -->
+                    <div class="relative">
+                      <label for="end_date" class="text-xs text-gray-600 block mb-1">End Date</label>
+                      <input type="date" id="end_date" name="end_date"
+                        class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2" />
+                    </div>
+                  </div>
+
+                  <!-- Pollutant Selection -->
+                  <div class="relative lg:w-full xl:w-full w-full mt-3">
+                    <label for="pollutant" class="leading-7 text-xs text-gray-600">Pollutant</label>
+                    <select id="pollutant" name="pollutant"
+                      class="w-full bg-gray-100 bg-opacity-50 rounded border border-gray-300 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2 leading-6 transition-colors duration-200 ease-in-out">
+                      <option value="CO">CO</option>
+                      <option value="NO2">NO2</option>
+                      <option value="PM2.5">PM2.5</option>
+                      <option value="PM10">PM10</option>
+                      <option value="SO2">SO2</option>
+                      <option value="O3">O3</option>
+                      <option value="HCHO">HCHO</option>
+                      <option value = "CH4">CH4</option>
+                    </select>
+                  </div>
+
+                  <!-- Show Air Direction and Concentration Regions Checkboxes (Side by Side) -->
+                  <div class="flex items-center gap-6 mb-3 mt-3 text-xs text-gray-600">
+                    <!-- Show Live Wind Flow -->
+                    <label class="flex items-center">
+                      <input type="checkbox" id="show_air_direction" name="show_air_direction" class="mr-2">
+                      Show Live Wind Flow
+                    </label>
+
+                    <!-- Show Concentration Regions -->
+                    <label class="flex items-center">
+                      <input type="checkbox" id="show_high_medium_low" name="show_high_medium_low" class="mr-2">
+                      Show Concentration Regions
+                    </label>
+                  </div>
+
+
+                  <!-- 🔘 Submit -->
+                  <div class="flex gap-3 mt-3">
+                    <!-- Submit Button -->
+                    <button id="show-concentration-btn"
+                      class="flex-1 inline-flex items-center justify-center text-white bg-indigo-500 border-0 py-2 px-4 rounded text-sm hover:bg-indigo-600 focus:outline-none transition-colors duration-150">
+                      <span id="button-text">Submit</span>
+                      <svg id="loading-spinner" class="animate-spin h-5 w-5 ml-2 text-white hidden"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div> <!-- Tab 1: Closed -->
+
+                <!-- Tab 2: Air Quality -->
+                <div class="tab-content-2 hidden" id="tab2">                 
+                  <h2 class="text-sm font-semibold text-center text-gray-800 mb-4">Parameters for Air Quality Index</h2>
+                  <!-- AQI Pollutants -->
+                  <div id="AQI-selection">
+                    <!-- Location of the City, Boundary of the City and State side-by-side -->
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+
+
+                        <!-- 🔹 City Shape-based Dropdown -->
+                      <div>
+                        <label class="text-xs text-gray-800">City Boundary</label>
+                        <select id="city-2" name="city-2" class="w-full max-w-xs border text-xs p-1 rounded">
+                          <option value="">Select the city</option>
+                          <option value="Ahmedabad">Ahmedabad</option>
+                          <option value="Bengaluru">Bengaluru</option>
+                          <option value="Bhopal">Bhopal</option>
+                          <option value="Chennai">Chennai</option>
+                          <option value="Hyderabad">Hyderabad</option>
+                          <option value="Indore">Indore</option>
+                          <option value="Jaipur">Jaipur</option>
+                          <option value="Kanpur">Kanpur</option>
+                          <option value="Kolkata">Kolkata</option>                          
+                          <option value="Lucknow">Lucknow</option>
+                          <option value="Mumbai">Mumbai</option>
+                          <option value="Nagpur">Nagpur</option>
+                          <option value="Navi_Mumbai">Navi Mumbai</option>
+                          <option value="DELHI">New_Delhi(NCR)</option>
+                          <option value="Patna">Patna</option>
+                          <option value="Pimpri_Chinchwad">Pimpri Chinchwad</option>
+                          <option value="Pune">Pune</option>
+                          <option value="Surat">Surat</option>
+                          <option value="Thane">Thane</option>
+                          <option value="Vadodara">Vadodara</option>
+                          <option value="Visakhapatnam">Visakhapatnam</option>
+                        </select>
+                      </div>
+
+                      <!-- State Dropdown -->
+                      <div id="state-block-2">
+                        <label class="text-xs text-gray-800">State/UT Boundary</label>
+                        <select id="state-2" name="state-2" class="w-full max-w-xs border text-xs p-1 rounded">
+                          <option value="">Select the State</option>
+                          <option value="AndhraPradesh">Andhra Pradesh</option>
+                          <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
+                          <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                          <option value="Assam">Assam</option>
+                          <option value="Bihar">Bihar</option>
+                          <option value="Chandigarh">Chandigarh</option>
+                          <option value="Chhattisgarh">Chhattisgarh</option>
+                          <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
+                          <option value="Delhi">Delhi</option>
+                          <option value="Goa">Goa</option>
+                          <option value="Gujarat">Gujarat</option>
+                          <option value="Haryana">Haryana</option>
+                          <option value="Himachal Pradesh">Himachal Pradesh</option>
+                          <option value="Jharkhand">Jharkhand</option>
+                          <option value="Jammu and Kashmir">Jammu and Kashmir</option>
+                          <option value="Karnataka">Karnataka</option>
+                          <option value="Kerala">Kerala</option>
+                          <option value="Ladakh">Ladakh</option>
+                          <option value="Lakshadweep">Lakshadweep</option>
+                          <option value="Madhya Pradesh">Madhya Pradesh</option>
+                          <option value="Maharashtra">Maharashtra</option>
+                          <option value="Manipur">Manipur</option>
+                          <option value="Meghalaya">Meghalaya</option>
+                          <option value="Mizoram">Mizoram</option>
+                          <option value="Nagaland">Nagaland</option>
+                          <option value="Odisha">Odisha</option>
+                          <option value="Puducherry">Puducherry</option>
+                          <option value="Punjab">Punjab</option>
+                          <option value="Rajasthan">Rajasthan</option>
+                          <option value="Sikkim">Sikkim</option>
+                          <option value="Tamil Nadu">Tamil Nadu</option>
+                          <option value="Telangana">Telangana</option>
+                          <option value="Tripura">Tripura</option>
+                          <option value="Uttar Pradesh">Uttar Pradesh</option>
+                          <option value="Uttarakhand">Uttarakhand</option>
+                          <option value="West Bengal">West Bengal</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="flex items-end gap-4 mt-2 mb-3">
+                    <!-- Buffer Radius -->
+
+                    <!-- Reset Button aligned right -->
+                    <button id="reset-dropdown-btn-2"
+                      class="ml-auto flex items-center gap-1 bg-gray-300 text-gray-800 px-3 py-2 rounded text-xs hover:bg-gray-400 transition-all duration-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 4v5h.582M19.418 19A9 9 0 105.582 5M20 20l-1.5-1.5" />
+                      </svg>
+                      Reset Selection
+                    </button>
+                  </div>
+
+                    <!-- 🗓️ Start & End Dates Side-by-Side -->
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                      <!-- Start Date -->
+                      <div class="relative">
+                        <label for="start_date-2" class="text-xs text-gray-600 block mb-1">Start Date</label>
+                        <input type="date" id="start_date-2" name="start_date-2"
+                          class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2" />
+                      </div>
+
+                      <!-- End Date -->
+                      <div class="relative">
+                        <label for="end_date-2" class="text-xs text-gray-600 block mb-1">End Date</label>
+                        <input type="date" id="end_date-2" name="end_date-2"
+                          class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2" />
+                      </div>
+                    </div>
+                    <div><h4>SUB-INDEX AQI</h4>
+                    <!-- Pollutant Selection -->
+                    <div class="relative lg:w-full xl:w-full w-full mt-3">
+                      <label for="pollutant-2" class="leading-7 text-xs text-gray-600">Pollutant Air Quality Index (AQI)</label>
+                      <select id="pollutant-2" name="pollutant-2"
+                        class="w-full bg-gray-100 bg-opacity-50 rounded border border-gray-300 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2 leading-6 transition-colors duration-200 ease-in-out">
+                        <option value="">Select the Pollutant </option>
+                        <option value="CO">CO</option>
+                        <option value="NO2">NO2</option>
+                        <option value="PM2.5">PM2.5</option>
+                        <option value="PM10">PM10</option>
+                        <option value="SO2">SO2</option>
+                        <option value="O3">O3</option>
+                        <!-- <option value="HCHO">HCHO</option> -->
+                      </select>
+                    </div>
+                    <button id="show-aqi-btn-1"
+                      class="inline-flex items-center justify-center text-white bg-indigo-500 border-0 py-2 px-4 focus:outline-none hover:bg-indigo-600 rounded text-sm mt-2 w-[300]]">
+                      <span id="button-text-aqi">Show Species AQI</span>
+                      <svg id="loading-spinner-2" class="animate-spin h-5 w-5 ml-2 text-white hidden"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                    </button>
+                    </div>
+                    <!------------------------------------------------------------------AQI Pollutants selection------------------------------------------------------------------->
+                    <div><h4>COMPOSITE AQI</h4>
+                    <div class="relative lg:w-full xl:w-full w-full mb-3 text-xs">
+                      <label for="aqi-pollutant-selection" class="leading-7 text-xs text-gray-600">
+                        Select pollutants for AQI calculation:
+                        - **Either PM2.5 or PM10 must be selected**
+                        - **At least three other pollutants must be selected**
+                      </label>
+                      <form id="aqiForm">
+                        <fieldset>
+                          <label><input type="checkbox" name="pollutants-required" value="PM2.5" class="pm-required"> PM2.5</label>
+                          <label><input type="checkbox" name="pollutants-required" value="PM10" class="pm-required"> PM10</label>
+                          <label><input type="checkbox" name="pollutants" value="O3" class="other-pollutant"> O3</label>
+                          <label><input type="checkbox" name="pollutants" value="NO2" class="other-pollutant"> NO2</label>
+                          <label><input type="checkbox" name="pollutants" value="SO2" class="other-pollutant"> SO2</label>
+                          <label><input type="checkbox" name="pollutants" value="CO" class="other-pollutant"> CO</label>
+                        </fieldset>
+                      </form>
+                      <p id="error-message" class="text-red-500 text-xs mt-2"></p>
+                    </div>
+  
+                    <!------------------------------------------------------------- Show AQI Button with Loading Spinner --------------------------------------------------------->
+                    
+                    
+                    
+  
+                    <button id="show-aqi-btn-2" class="bg-indigo-500 text-white px-4 py-2 rounded text-sm">Show Cumulative AQI</button>
+                    </div>
+                  </div>
+                  
+                </div>
+                
+                
+
+				
+              </div>
+				<!-- Tab 3: AQI & Actions -->
+                <div class="tab-content-3 hidden" id="tab3">
+
+                    <div id="state-block-3">
+                      <label class="text-xs text-gray-600">State/UT Boundary</label>
+                      <select id="state-3" name="state-3" class="w-full max-w-xs border text-xs p-0.5 rounded">
+                        <option value="">Select the State</option>
+                        <option value="Andhra Pradesh">Andhra Pradesh</option>
+                        <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                        <option value="Assam">Assam</option>
+                        <option value="Bihar">Bihar</option>
+                        <option value="Chhattisgarh">Chhattisgarh</option>
+                        <option value="Goa">Goa</option>
+                        <option value="Gujarat">Gujarat</option>
+                        <option value="Haryana">Haryana</option>
+                        <option value="Himachal Pradesh">Himachal Pradesh</option>
+                        <option value="Jammu_Kashmir&Ladakh">Jammu_Kashmir&Ladakh</option>
+                        <option value="Jharkhand">Jharkhand</option>
+                        <option value="Karnataka">Karnataka</option>
+                        <option value="Kerala">Kerala</option>
+                        <option value="Madhya Pradesh">Madhya Pradesh</option>
+                        <option value="Maharashtra">Maharashtra</option>
+                        <option value="Manipur">Manipur</option>
+                        <option value="Meghalaya">Meghalaya</option>
+                        <option value="Mizoram">Mizoram</option>
+                        <option value="Nagaland">Nagaland</option>
+                        <option value="Odisha">Odisha</option>
+                        <option value="Punjab">Punjab</option>
+                        <option value="Rajasthan">Rajasthan</option>
+                        <option value="Sikkim">Sikkim</option>
+                        <option value="Tamil Nadu">Tamil Nadu</option>
+                        <option value="Telangana">Telangana</option>
+                        <option value="Tripura">Tripura</option>
+                        <option value="Uttar Pradesh">Uttar Pradesh</option>
+                        <option value="Uttarakhand">Uttarakhand</option>
+                        <option value="West Bengal">West Bengal</option>                        
+                        <option value="Delhi">New Delhi-NCR</option>
+                        <option value="Other Union Territories">Other Union Territories</option>
+                      </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                    <!-- Start Date -->
+                    <div class="relative">
+                      <label for="Year" class="text-xs text-gray-600 block mb-1">Start Date</label>
+                      <select id="Year" name="Year" class="w-full bg-white rounded border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-xs outline-none text-gray-700 py-1 px-2" />                              
+                        <option value="">Select Year</option>
+                        <option value="2018">2018</option>
+                        <option value="2019">2019</option>
+                        <option value="2020">2020</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                      </select>
+                    </div>
+
+                  <div class="relative">
+                      <label class="text-xs text-gray-600">Disease_name</label>
+                      <select id="Disease" name="Disease" class="w-full max-w-xs border text-xs p-0.5 rounded">
+                        <option value="">Select the Cause of Death</option>
+                        <option value="Asthma">Asthma</option>
+                        <option value="Chronic obstructive pulmonary disease">Chronic obstructive pulmonary disease</option>
+                        <option value="Chronic respiratory diseases">Chronic respiratory diseases</option>
+                        <option value="COVID-19">COVID-19</option>
+                        <option value="Interstitial lung disease and pulmonary sarcoidosis">Interstitial lung disease and pulmonary sarcoidosis</option>
+                        <option value="Lower respiratory infections">Lower respiratory infections</option>
+                        <option value="Otitis media">Otitis media</option>
+                        <option value="Pneumoconiosis">Pneumoconiosis</option>                       
+                        <option value="Respiratory infections and tuberculosis">Respiratory infections and tuberculosis</option>
+                        <option value="Tuberculosis">Tuberculosis</option>
+                        <option value="Upper respiratory infections">Upper respiratory infections</option>                         
+                        <option value="Other chronic respiratory diseases">Other chronic respiratory diseases</option>
+                        
+                      </select>
+                    </div>
+
+                    <!--  -->
+                    </div>
+                    <div class="flex gap-3 mt-3">
+                    <!-- Submit Button -->
+                    <button id="show"
+                      class="flex-1 inline-flex items-center justify-center text-white bg-indigo-500 border-0 py-2 px-4 rounded text-sm hover:bg-indigo-600 focus:outline-none transition-colors duration-150">
+                      <span id="button-text">Show</span>
+                      <svg id="loading-spinner-4" class="animate-spin h-5 w-5 ml-2 text-white hidden"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- AQI Pollutants -->
+                  <!-- <div class="mb-4">
+                    <p class="text-xs text-gray-600">Select pollutants for AQI:</p>
+                    <form id="aqiForm">
+                      <label><input type="checkbox" name="pollutants3" value="PM2.5" class="pm-required"> PM2.5</label>
+                      <label><input type="checkbox" name="pollutants3" value="PM10" class="pm-required"> PM10</label>
+                      <label><input type="checkbox" name="pollutants3" value="O3" class="other-pollutant"> O3</label>
+                      // Others -->
+                    <!-- </form>
+                    <p id="error-message" class="text-red-500 text-xs mt-2"></p>-->
+                  <!--</div> -->
+
+                  <!-- Buttons 
+                 
+                  
+                  <button id="Plot-AQI-btn" class="bg-indigo-500 text-white px-4 py-2 rounded text-sm">Plot AQI</button>-->
+                  
+                  
+                </div>
+            </div>
+          </div>
+  
+          <!-- 🤖 Chatbot Container -->
+          <div id="chatbot-container" class="h-80 bg-gray-100 p-4 rounded-lg shadow-md flex lg:flex-row ">
+            <div class="chat-header mb-2">
+              <h3 class="text-sm font-semibold">Air Quality Assistant</h3>
+            </div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto text-xs space-y-2 border rounded p-2 bg-white"></div>
+            <div class="chat-input-container mt-2">
+              <div class="flex space-x-2">
+                <input type="text" id="user-input" class="flex-1 border rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500" placeholder="Ask about air quality...">
+                <button onclick="sendMessage()" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+  
+        <!-- 🗺️ Middle Column: Map -->
+        <div class="lg:w-1/2 w-full bg-gray-100 p-2 rounded-lg shadow-md flex lg:flex-column">
+          <!-- Map container for both Leaflet and Windy -->
+          <div id="map-container" class="relative w-full h-[500px] rounded-lg mx-auto overflow-hidden">
+            
+            <!-- Leaflet Map -->
+            <div id="map" class="w-full h-full rounded-lg">
+              <!-- Optional placeholder -->
+              <p class="text-center text-gray-600 mt-64">Map Area</p>  
+            </div>
+
+            <!-- Legend -->
+            <div id="legend" class="legend"></div>
+
+            <!-- Windy Container (initially hidden, absolutely positioned) -->
+            <div id="windy" class="absolute w-full h-full rounded-lg hidden opacity-60 pointer-events-none">
+              <!-- Optional placeholder -->
+              <p class="text-center text-gray-600 mt-64">Windy Map Area</p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 🗺️ Right Column: ChartArea -->
+        <div class="lg:w-2/5 w-full bg-white p-2 rounded-lg shadow-md flex flex-col gap-2">
+          <!-- Chart Row 1 -->
+           
+          <div id="chart-row-1" class="flex-grow flex-1 bg-gray-300 rounded-lg p-2 relative h-[400px]">
+            <div id="modal-header" class="hidden bg-blue-600 text-white px-1 py-1 rounded-t-lg flex justify-between items-center">
+              <span class="text-sm font-semibold">Concentration Time Series with Varying Day</span>
+              <div class="flex justify-end items-center gap-1">
+                <label for="window-size" class="text-white whitespace-nowrap text-xs">Moving Average Window:</label>
+                <input id="window-size" type="number" value="7" min="1" max="30" 
+                      class="w-[60px] text-black text-xs font-bold px-1 py-[2px]" />
+              </div>
+              <button id="close-modal" class="text-white font-bold text-xl leading-none">&times;</button>
+            </div>
+            <div id="chart1" class="w-full h-full"></div>
+          </div>
+
+          <!-- Chart Row 2 -->
+          <div id="chart-row-2" class="flex-grow flex-1 bg-gray-300 rounded-lg p-2 relative h-[400px]">
+            <div id="chart2" class="w-full h-full"></div>
+          </div>
+
+
+        </div>
+
+  
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-polygon-mask"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.11/dist/esri-leaflet.js"></script>
+
+  <!-- Correct Leaflet 1.4.0 version -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+  <!-- Tabs JS -->
+  <script>
+    const tabs = document.querySelectorAll('.tab-button,.tab-button-2,.tab-button-3');
+    const contents = document.querySelectorAll('.tab-content,.tab-content-2,.tab-content-3');
+
+    tabs.forEach(button => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.tab;
+
+        // Toggle active tab
+        tabs.forEach(btn => btn.classList.remove('bg-indigo-500', 'text-white'));
+        button.classList.add('bg-indigo-500', 'text-white');
+
+        // Show correct content
+        contents.forEach(c => c.classList.add('hidden'));
+        document.getElementById(tab).classList.remove('hidden');
+      });
+    });
+  </script>
+
+<script>
+  // 🌐 Global scope
+  let bufferCircle = null;
+  let cityGeoLayer = null;
+  let stateGeoLayer = null;
+  let currentPollutantLayer = null;
+  const indiaBounds = [
+        [6.5, 68.0],
+        [37.5, 97.5]
+      ];  
+
+      //Initialize Leaflet map
+const leafletMap = L.map('map', {
+  center: [22.5, 78],
+  zoom: 5,
+  minZoom: 5,
+  maxZoom: 100,
+  maxBounds: indiaBounds,
+  maxBoundsViscosity: 1.0,
+});
+//Initialize the Concentration Layer
+let concentrationLayer = L.layerGroup().addTo(leafletMap);
+// Initialize the Bhuvan Layer
+const bhuvanBase = L.tileLayer.wms('https://bhuvan-vec1.nrsc.gov.in/bhuvan/gwc/service/wms?', {
+  layers: 'india3',
+  format: 'image/png',
+        transparent: true,
+        attribution: '&copy; <a href="https://bhuvan.nrsc.gov.in">Bhuvan</a>'
+}).addTo(leafletMap);
+        
+      // Overlay: State boundaries WMS
+const stateBoundaries = L.tileLayer.wms('https://bhuvan-vec1.nrsc.gov.in/bhuvan/gwc/service/wms?', {
+  layers: 'basemap:india_state_bound_lebel_new',
+  format: 'image/png',
+  transparent: true,
+  attribution: '&copy; <a href="https://bhuvan.nrsc.gov.in">Bhuvan</a>'
+}).addTo(leafletMap); 
+
+const cityCoordinates = {
+        New_Delhi_NCR: { lat: 28.6139, lon: 77.2090 },
+        Mumbai: { lat: 19.0760, lon: 72.8777 },
+        Kolkata: { lat: 22.5726, lon: 88.3639 },
+        Chennai: { lat: 13.0827, lon: 80.2707 },
+        Bengaluru: { lat: 12.9716, lon: 77.5946 },
+        Hyderabad: { lat: 17.3850, lon: 78.4867 },
+        Pune: { lat: 18.5204, lon: 73.8567 },
+        Ahmadabad: { lat: 23.0225, lon: 72.5714 },
+        Jaipur: { lat: 26.9124, lon: 75.7873 },
+        Lucknow: { lat: 26.8467, lon: 80.9462 },
+        Surat: { lat: 21.1702, lon: 72.8311 },
+        Kanpur: { lat: 26.4499, lon: 80.3319 },
+        Nagpur: { lat: 21.1458, lon: 79.0882 },
+        Indore: { lat: 22.7196, lon: 75.8577 },
+        Thane: { lat: 19.2183, lon: 72.9781 },
+        Bhopal: { lat: 23.2599, lon: 77.4126 },
+        Patna: { lat: 25.5941, lon: 85.1376 },
+        Vadodara: { lat: 22.3072, lon: 73.1812 },
+        Ludhiana: { lat: 30.9010, lon: 75.8573 },
+        Agra: { lat: 27.1767, lon: 78.0081 }
+      };
+
+
+
+</script>
+
+  <!-- Tab 1 all works -->
+ <!-- Tab 1 all works -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {    
+
+      const cityLocationDropdown = document.getElementById('city-location');
+      const cityShapeDropdown = document.getElementById('city');
+      const stateShapeDropdown = document.getElementById('state');
+      const manualInputs = document.getElementById('manual-inputs');
+      const bufferInput = document.getElementById('buffer');
+      const resetBtn = document.getElementById('reset-dropdown-btn');
+
+      // Utility: Remove and nullify layer
+      function removeLayer(layerRef) {
+        if (layerRef) {
+          leafletMap.removeLayer(layerRef);
+          return null;
+        }
+        return layerRef;
+      }
+
+      // Clear all layers
+      function clearMapLayers() {
+        cityGeoLayer = removeLayer(cityGeoLayer);
+        stateGeoLayer = removeLayer(stateGeoLayer);
+        bufferCircle = removeLayer(bufferCircle);
+      }
+
+      // Enable/Disable Buffer Input
+      function disableBuffer() {
+        bufferInput.disabled = true;
+        bufferInput.style.backgroundColor = 'lightgrey';
+        bufferInput.value = '50000';
+      }
+
+      function enableBuffer() {
+        bufferInput.disabled = false;
+        bufferInput.style.backgroundColor = '';
+      }
+
+      // Validate buffer radius (default = 50000)
+      function validateBufferRadius(value) {
+        let radius = parseInt(value);
+        if (isNaN(radius) || radius <= 0 || radius > 50000) {
+          return 50000; // Default radius
+        }
+        return radius;
+      }
+
+      // Load GeoJSON Shape (City or State)
+      function loadGeoShape(type, name, color) {
+	  const fileName = type === "city" ? name.toUpperCase() : name;
+	  const url = `/static/${type}/${fileName}.geojson`;
+	  fetch(url)
+	    .then(res => res.ok ? res.json() : Promise.reject(`${type} shape not found`))
+	    .then(geojson => {
+	      clearMapLayers();
+	      const layer = L.geoJSON(geojson, {
+	        style: { color, weight: 2, opacity: 0.6 }
+	      }).addTo(leafletMap);
+	      leafletMap.fitBounds(layer.getBounds());
+	      if (type === "city") cityGeoLayer = layer;
+	      if (type === "state") stateGeoLayer = layer;
+	    })
+	    .catch(err => alert("Failed to load shape: " + err));
+	}
+
+      // Initialize City Coordinates
+      const cityCoordinates = {
+        New_Delhi_NCR: { lat: 28.6139, lon: 77.2090 },
+        Mumbai: { lat: 19.0760, lon: 72.8777 },
+        Kolkata: { lat: 22.5726, lon: 88.3639 },
+        Chennai: { lat: 13.0827, lon: 80.2707 },
+        Bengaluru: { lat: 12.9716, lon: 77.5946 },
+        Hyderabad: { lat: 17.3850, lon: 78.4867 },
+        Pune: { lat: 18.5204, lon: 73.8567 },
+        Ahmedabad: { lat: 23.0225, lon: 72.5714 },
+        Jaipur: { lat: 26.9124, lon: 75.7873 },
+        Lucknow: { lat: 26.8467, lon: 80.9462 },
+        Surat: { lat: 21.1702, lon: 72.8311 },
+        Kanpur: { lat: 26.4499, lon: 80.3319 },
+        Nagpur: { lat: 21.1458, lon: 79.0882 },
+        Indore: { lat: 22.7196, lon: 75.8577 },
+        Thane: { lat: 19.2183, lon: 72.9781 },
+        Bhopal: { lat: 23.2599, lon: 77.4126 },
+        Patna: { lat: 25.5941, lon: 85.1376 },
+        Vadodara: { lat: 22.3072, lon: 73.1812 },
+        Ludhiana: { lat: 30.9010, lon: 75.8573 },
+        Agra: { lat: 27.1767, lon: 78.0081 }
+      };
+
+      // Populate City Location Dropdown dynamically
+      cityLocationDropdown.innerHTML = '';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Select a city';
+      defaultOption.disabled = true;
+      defaultOption.selected = true;
+      cityLocationDropdown.appendChild(defaultOption);
+
+      Object.keys(cityCoordinates)
+        .sort()
+        .forEach(cityName => {
+          const option = document.createElement('option');
+          option.value = cityName;
+          option.textContent = cityName;
+          cityLocationDropdown.appendChild(option);
+        });
+
+      const manualOption = document.createElement('option');
+      manualOption.value = 'manual';
+      manualOption.textContent = 'Enter Manually';
+      cityLocationDropdown.appendChild(manualOption);
+
+      // City Location Dropdown Listener
+      cityLocationDropdown.addEventListener('change', function () {
+        const selected = this.value;
+        clearMapLayers();
+
+        cityShapeDropdown.disabled = true;
+        stateShapeDropdown.disabled = true;
+        manualInputs.classList.add('hidden');
+
+        if (selected === 'manual') {
+          manualInputs.classList.remove('hidden');
+          enableBuffer();
+          // updateManualLocation();
+        } else if (cityCoordinates[selected]) {
+            const { lat, lon } = cityCoordinates[selected];
+            const selectedCity = Object.keys(cityCoordinates);
+            if (isNaN(lat) || isNaN(lon)) {
+              alert("Invalid coordinates for the selected city.");
+              return;
+            }
+ 
+            leafletMap.setView([lat, lon], 10);
+            let radius = validateBufferRadius(bufferInput.value || '50000');
+            bufferCircle = L.circle([lat, lon], {
+              color: 'red',
+              fillColor: '#f03',
+              fillOpacity: 0,
+              radius: radius
+            }).addTo(leafletMap);
+            enableBuffer();       
+        }
+      });
+
+      // City Shape Dropdown Listener
+      cityShapeDropdown.addEventListener('change', function () {
+        const city = this.value;
+        clearMapLayers();
+        loadGeoShape("city", city, 'blue');
+        disableBuffer();
+
+        // Disable other dropdowns
+        cityLocationDropdown.disabled = true;
+        stateShapeDropdown.disabled = true;
+      });
+
+      // State Shape Dropdown Listener
+      stateShapeDropdown.addEventListener('change', function () {
+        const state = this.value;
+        clearMapLayers();
+        loadGeoShape("state", state, 'green');
+        disableBuffer();
+
+        // Disable other dropdowns
+        cityLocationDropdown.disabled = true;
+        cityShapeDropdown.disabled = true;
+      });
+
+      // Manual Input Handlers
+      document.getElementById('lat').addEventListener('input', function () {
+        clearTimeout(manualTimeout);
+        manualTimeout = setTimeout(updateManualLocation, 300);
+      });
+      document.getElementById('lon').addEventListener('input', function () {
+        clearTimeout(manualTimeout);
+        manualTimeout = setTimeout(updateManualLocation, 300);
+      });
+
+      let  bufferTimeout;
+      bufferInput.addEventListener('change', function () {
+        clearTimeout(bufferTimeout);
+        bufferTimeout = setTimeout(() => {
+          const radius = validateBufferRadius(this.value);
+          if (bufferCircle) {
+            bufferCircle.setRadius(radius);
+          }
+        }, 200);
+        // updateManualLocation();
+      });
+
+      // Set default buffer radius value
+      bufferInput.value = '50000';
+
+      // Set default dates
+      const endDateInput = document.getElementById("end_date");
+      const startDateInput = document.getElementById("start_date");
+
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const oneMonthBeforeYesterday = new Date(yesterday);
+      oneMonthBeforeYesterday.setMonth(oneMonthBeforeYesterday.getMonth() - 1);
+
+      function formatDate(date) {
+        let month = '' + (date.getMonth() + 1);
+        let day = '' + date.getDate();
+        const year = date.getFullYear();
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+        return [year, month, day].join('-');
+      }
+
+      endDateInput.value = formatDate(yesterday);
+      startDateInput.value = formatDate(oneMonthBeforeYesterday);
+
+      // Reset Button Handler
+      resetBtn.addEventListener('click', function () {
+        clearMapLayers();
+
+        if (currentPollutantLayer) {
+          leafletMap.removeLayer(currentPollutantLayer);
+          currentPollutantLayer = null;
+        }
+
+        cityLocationDropdown.selectedIndex = 0;
+        cityShapeDropdown.selectedIndex = 0;
+        stateShapeDropdown.selectedIndex = 0;
+
+        cityLocationDropdown.disabled = false;
+        cityShapeDropdown.disabled = false;
+        stateShapeDropdown.disabled = false;
+		bufferCircle = removeLayer(bufferCircle);
+
+        manualInputs.classList.add('hidden');
+        document.getElementById('lat').value = '';
+        document.getElementById('lon').value = '';
+
+        bufferInput.value = 50000;  // ✅ Default buffer radius
+        disableBuffer();
+
+        endDateInput.value = formatDate(yesterday);
+        startDateInput.value = formatDate(oneMonthBeforeYesterday);
+        
+
+        const loadingSpinner = document.getElementById("loading-spinner");
+        const buttonText = document.getElementById("button-text");
+        const showConcentrationBtn = document.getElementById("show-concentration-btn");
+
+        loadingSpinner.classList.add("hidden");
+        buttonText.textContent = "Show Pollutant Concentration";
+        showConcentrationBtn.disabled = false;
+
+      });
+
+        let manualTimeout;
+            ['lat', 'lon'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function () {
+              clearTimeout(manualTimeout);
+              manualTimeout = setTimeout(updateManualLocation, 300);
+            });
+        });    
+
+    
+
+        // Tab 1 Continues 
+        document.getElementById("show-concentration-btn").addEventListener("click", async function () {
+
+          const cityLocationDropdown = document.getElementById("city-location").value;
+          const startDate = document.getElementById("start_date").value;
+          const endDate = document.getElementById("end_date").value;
+          const bufferInput = document.getElementById("buffer");
+          const bufferRadius = parseInt(bufferInput.value);
+          const pollutant = document.getElementById("pollutant").value;
+          const showHighMediumLow = document.getElementById("show_high_medium_low").checked;
+
+          const showConcentrationBtn = document.getElementById("show-concentration-btn");
+          const loadingSpinner = document.getElementById("loading-spinner");
+          const buttonText = document.getElementById("button-text");
+
+          const cityShapeDropdown = document.getElementById("city");
+          const stateShapeDropdown = document.getElementById("state");  
+
+          const city = cityShapeDropdown.value;
+
+          // const bufferCircle = null;
+
+          let lat, lon;
+
+          function getBoundaryType() {
+            if (!cityShapeDropdown.disabled && cityShapeDropdown.value) return "city";
+            if (!stateShapeDropdown.disabled && stateShapeDropdown.value) return "state";
+            if (cityLocationDropdown === "manual") return "buffer";
+            if(cityLocationDropdown != "manual") return "city-location";
+            return "buffer";
+          }
+
+
+          const boundaryType = getBoundaryType();
+          
+
+          // Show loading UI
+
+          loadingSpinner.classList.remove("hidden");
+          buttonText.textContent = "Loading...";
+          showConcentrationBtn.disabled = true;
+
+          // Remove previous layers and reset variables
+          if (bufferCircle) {
+            leafletMap.removeLayer(bufferCircle);
+            bufferCircle = null;
+          }
+          if (cityGeoLayer) {
+            leafletMap.removeLayer(cityGeoLayer);
+            cityGeoLayer = null;
+          }
+          if (stateGeoLayer) {
+            leafletMap.removeLayer(stateGeoLayer);
+            stateGeoLayer = null;
+          }
+          if (currentPollutantLayer) {
+            leafletMap.removeLayer(currentPollutantLayer);
+            currentPollutantLayer = null;
+          }
+
+          clearLegend();
+          clearMapLayers();
+
+          
+          // Update Manual Location
+          function updateManualLocation() {
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lon = parseFloat(document.getElementById('lon').value);
+            let radius = validateBufferRadius(bufferInput.value);
+
+            if (isNaN(lat) || isNaN(lon) || lat < 8 || lat > 38 || lon < 68 || lon > 98) {
+              return;
+            }
+
+            bufferCircle = removeLayer(bufferCircle);
+            bufferCircle = L.circle([lat, lon], {
+              color: 'red',
+              fillColor: '#f03',
+              fillOpacity: 0,
+              radius: radius
+            }).addTo(leafletMap);
+
+            leafletMap.setView([lat, lon], 12);
+            return {lat, lon};
+          }
+
+          if (boundaryType === "city-location" || boundaryType === "buffer") {
+            if (cityLocationDropdown === "manual") {
+              const manualCoords = updateManualLocation();
+              lat = manualCoords.lat;
+              lon = manualCoords.lon;
+            } else {
+               const selectedCity = Object.keys(cityCoordinates).find(c => c.toLowerCase() === cityLocationDropdown.toLowerCase());
+                if (selectedCity) {
+                  const coords = cityCoordinates[selectedCity];
+                  lat = coords.lat;
+                  lon = coords.lon;
+                }
+              }
+
+            if (isNaN(lat) || isNaN(lon)) {
+              alert("Please enter valid Latitude and Longitude.");
+              resetUI();
+              return;
+            }
+          }
+
+          const adjustedCenter = [lat, lon];
+
+          try {
+            // Load boundaries and adjust map view
+            if (boundaryType === "city") {
+              await addCityBoundaryLayer(city);
+              if (cityGeoLayer) {
+                leafletMap.fitBounds(cityGeoLayer.getBounds());
+              }
+            } else if (boundaryType === "state") {
+              const stateName = stateShapeDropdown.value;
+              await loadStateBoundary(stateName);
+              if (stateGeoLayer) {
+                leafletMap.fitBounds(stateGeoLayer.getBounds());
+              }
+            } else {
+              // Default to buffer
+              if (boundaryType === "city-location" || boundaryType === "buffer") {
+              bufferCircle = L.circle([lat, lon], {
+                radius: bufferRadius,
+                color: "red",
+                fill: false
+              }).addTo(leafletMap);
+              leafletMap.fitBounds(bufferCircle.getBounds());
+              }
+            }
+          } catch (e) {
+            alert("Error loading boundaries: " + e.message);
+            resetUI();
+          }
+
+
+          // Build fetch URL
+          let queryUrl = "";
+          if (boundaryType === "city-location" || boundaryType === "buffer") {
+            queryUrl = `/api/get-pollutant-location?lat=${lat}&lon=${lon}&buffer=${bufferRadius}&start_date=${startDate}&end_date=${endDate}&pollutant=${pollutant}&hml=${showHighMediumLow}`;
+          } else if (boundaryType === "city") {
+            const cityName = encodeURIComponent(cityShapeDropdown.value);
+            queryUrl = `/api/get-pollutant-city?city=${cityName}&start_date=${startDate}&end_date=${endDate}&pollutant=${pollutant}&hml=${showHighMediumLow}`;
+          } else if (boundaryType === "state") {
+            const stateName = encodeURIComponent(stateShapeDropdown.value);
+            queryUrl = `/api/get-pollutant-state?state=${stateName}&start_date=${startDate}&end_date=${endDate}&pollutant=${pollutant}&hml=${showHighMediumLow}`;
+          }
+
+          // Fetch and render layer
+          fetch(queryUrl)
+            .then(res => res.json())
+            .then(data => {
+              if (!data.tile_url) {
+                alert("Tile layer URL missing from response.");
+                resetUI();
+                return;
+              }
+
+              currentPollutantLayer = L.tileLayer(data.tile_url, {
+                opacity: 0.6,
+                minZoom: 1,
+                maxZoom: 1000,
+                attribution: '&copy; <a href="https://earthengine.google.com/">Google Earth Engine</a>',
+              });
+
+              currentPollutantLayer.addTo(leafletMap);
+              currentPollutantLayer.on('load', () => resetUI());
+              
+              // Update Legend with showHighMediumLow flag
+              updateLegend(
+                formatSmart(data.min_raw),
+                formatSmart(data.max_raw),
+                data.unit,
+                data.legend_labels,
+                showHighMediumLow
+              );
+
+              // --- 3. Render Regional Plots using Plotly Chart in Chart Area 2 ---
+              if (data.time_series && data.time_series.length > 0) {
+                const pollutant = data.time_series[0].band;
+                const unit = data.unit || ''; // Fallback to empty string if undefined
+
+                // ✅ Extract min/max safely from API response
+                const min = typeof data.min_raw !== 'undefined' ? data.min_raw : 0;
+                const max = typeof data.max_raw !== 'undefined' ? data.max_raw : 100;
+
+                // Clear any existing chart
+                Plotly.purge('chart2');
+
+                // Hide the placeholder message
+                const placeholder = document.querySelector('#chart-row-2 p');
+                if (placeholder) placeholder.style.display = 'none';
+
+                // Render the new chart
+                renderRegionTimeSeriesChart(data.time_series, pollutant, unit, min, max);
+              } else {
+                // No data: clear chart and show message
+                Plotly.purge('chart2');
+                document.getElementById("chart2").innerHTML = "<p>No time series data available.</p>";
+              }
+
+            })
+            .catch(err => {
+              console.error("Error fetching pollutant data:", err);
+              alert("Error fetching pollutant data.");
+              resetUI(); // Reset loading indicators or UI states
+            });
+          
+
+        }); // Show Concentration button Event Listner Ends here
+
+        // Function to clear legend
+        function clearLegend() {
+          const legend = document.getElementById("legend");
+          if (legend) {
+            legend.innerHTML = "";
+          }
+        }
+
+        // Function to reset UI after loading
+        function resetUI() {
+          const loadingSpinner = document.getElementById("loading-spinner");
+          const buttonText = document.getElementById("button-text");
+          const showConcentrationBtn = document.getElementById("show-concentration-btn");
+
+          loadingSpinner.classList.add("hidden");
+          buttonText.textContent = "Show Pollutant Concentration";
+          showConcentrationBtn.disabled = false;
+        }
+
+        // Function to remove the buffer circle from the map
+        function resetMapLayers() {
+          if (bufferCircle) {
+            map.removeLayer(bufferCircle);
+            bufferCircle = null;
+          }
+        }
+
+        // Function to reset input dropdowns
+        function resetLocationInputs(except) {
+          const cityDropdown = document.getElementById('city');
+          const stateDropdown = document.getElementById('state');
+          const latInput = document.getElementById('lat');
+          const lonInput = document.getElementById('lon');
+
+          if (except !== 'city') {
+            cityDropdown.value = "";
+            cityDropdown.disabled = false;
+          } else {
+            cityDropdown.disabled = false;
+          }
+
+          if (except !== 'state') {
+            stateDropdown.value = "";
+            stateDropdown.disabled = false;
+          } else {
+            stateDropdown.disabled = false;
+          }
+
+          if (except !== 'manual') {
+            latInput.value = "";
+            lonInput.value = "";
+            latInput.disabled = false;
+            lonInput.disabled = false;
+          } else {
+            latInput.disabled = false;
+            lonInput.disabled = false;
+          }
+
+          // Hide/show manual input block
+          document.getElementById('manual-inputs').style.display = (except === 'manual') ? 'block' : 'none';
+        }
+
+      
+        // 🔄 Reset button to clear everything
+        document.getElementById('reset-dropdown-btn').addEventListener('click', () => {
+          resetUI();
+          resetLocationInputs(); // Clear all and enable
+          resetMapLayers(); // Clear all buffer circle
+          Plotly.purge('chart2');// Clear any existing chart
+        });
+
+        // Load city boundary
+        async function addCityBoundaryLayer(cityName) {
+          const cityGeoJSONUrl = `/static/city/${cityName.toUpperCase()}.geojson`;
+
+          try {
+            const response = await fetch(cityGeoJSONUrl);
+            if (!response.ok) throw new Error("Failed to fetch city GeoJSON");
+            const geojson = await response.json();
+            cityGeoLayer = L.geoJSON(geojson, {
+              style: {
+                color: "#FF5733",
+                fillOpacity: 0.001
+              }
+            }).addTo(leafletMap);
+          } catch (e) {
+            console.error("City boundary error", e);
+            alert("Failed to load city boundary.");
+            throw e;  // Rethrow to handle in caller
+          }
+        }
+
+        // Load state boundary
+        async function loadStateBoundary(stateName) {
+          const stateGeoJSONUrl = `/static/state/${stateName}.geojson`;
+          try {
+            const response = await fetch(stateGeoJSONUrl);
+            if (!response.ok) throw new Error("Failed to fetch state GeoJSON");
+            const data = await response.json();
+            stateGeoLayer = L.geoJSON(data, {
+              style: {
+                color: "#FF5733",
+                fillOpacity: 0.001
+              }
+            }).addTo(leafletMap);
+          } catch (e) {
+            console.error("State boundary error", e);
+            alert("Failed to load state boundary.");
+            throw e;  // Rethrow to handle in caller
+          }
+        }
+    
+        // Function to Update Legend
+        // Format a number so it stays visible whatever its magnitude:
+        // keeps 4 significant figures (e.g. 0.0004123 stays 0.0004123, not 0.00),
+        // and only falls back to scientific notation for extreme magnitudes.
+        function formatSmart(v) {
+          if (v === null || v === undefined || v === '' || isNaN(v)) return 'N/A';
+          const n = Number(v);
+          if (n === 0) return '0';
+          const a = Math.abs(n);
+          if (a >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+          if (a >= 1e-4) return parseFloat(n.toPrecision(4)).toString();
+          return n.toExponential(2);
+        }
+
+        function updateLegend(minValue, maxValue, unit, legendLabels, showHML) {
+          const legend = document.getElementById("legend");
+          const pollutant = document.getElementById("pollutant").value;
+
+          if (showHML) {
+            legend.innerHTML = `
+              <h4>Concentration of ${pollutant}</h4>
+              <div class="legend-hml">
+                <div class="legend-item">
+                  <span class="legend-color" style="background-color: blue;"></span>
+                  <span class="legend-label">Low [<30%]</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color" style="background-color: yellow;"></span>
+                  <span class="legend-label">Medium [30-60%]</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color" style="background-color: red;"></span>
+                  <span class="legend-label">High [>60%]</span>
+                </div>
+              </div>
+            `;
+          } else {
+            legend.innerHTML = `
+              <h4>Concentration of ${pollutant}</h4>
+              <div class="gradient"></div>
+              <div class="labels">
+                <span>${minValue}${unit}</span>
+                <span>${maxValue}${unit}</span>
+              </div>
+            `;
+          }
+        }
+
+        // 1. Moving average calculator Started
+        let latestData = null;
+
+        // 1. Moving average calculator
+        function calculateMovingAverage(data, window = 7) {
+          const result = [];
+          for (let i = 0; i < data.length; i++) {
+            let sum = 0, count = 0;
+            for (let j = Math.max(0, i - window + 1); j <= i; j++) {
+              const val = data[j].value;
+              if (!isNaN(val)) {
+                sum += val;
+                count++;
+              }
+            }
+            result.push({
+              date: data[i].date,
+              value: count > 0 ? sum / count : null
+            });
+          }
+          return result;
+        }
+
+        // 2. Chart renderer I
+        function renderConcentrationChart(data, lat, lon) {
+            latestData = data;
+            latestLat = lat;
+            latestLon = lon;
+           
+            // Clone and sort data by date
+            const sortedSeries = [...data.series].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const pollutant = document.getElementById("pollutant").value;
+            const windowInput = document.getElementById("window-size");
+            const windowSize = parseInt(windowInput.value) || 7;
+
+            const dates = sortedSeries.map(d => d.date);
+
+            const trace = {
+              x: dates,
+              y: sortedSeries.map(d => d.value),
+              mode: 'lines+markers',
+              name: `Concentration (${data.unit})`,
+              line: {
+                color: 'rgba(31, 119, 180, 1)', // Deep blue line
+                width: 2
+              },
+              marker: {
+                size: 6,
+                color: 'maroon', // Slightly transparent blue marker
+                line: {
+                  width: 1,
+                  color: 'darkred' // Darker border for the marker
+                }
+              },
+              hovertemplate: '%{x}<br>%{y:.4g} ' + data.unit + '<extra></extra>'
+            };
+
+            const traces = [trace];
+
+            if (sortedSeries.length > windowSize) {
+              const avg = calculateMovingAverage(sortedSeries, windowSize);
+              const avgDates = avg.map(d => d.date);
+              traces.push({
+                x: avgDates,
+                y: avg.map(d => d.value),
+                mode: 'lines',
+                name: `${windowSize}-day Moving Average`,
+                line: { color: 'red', dash: 'dash', width: 1.5, shape: 'spline'},
+                hovertemplate: '%{x}<br>%{y:.4g} ' + data.unit + '<extra></extra>'
+              });
+            }
+
+            let latStr = (typeof latestLat === 'number') ? latestLat.toFixed(2) : 'N/A';
+            let lonStr = (typeof latestLon === 'number') ? latestLon.toFixed(2) : 'N/A';
+
+            const layout = {
+              autosize: true,
+              height: 350,
+              margin: { t: 90, l: 40, r: 20, b: 20 }, // increased top margin for space
+              title: {
+                text: `<b>Pixel based Concentration of ${pollutant} Over Time</b><br>`,
+                font: { size: 13, color: '#000', family: 'Arial Black' },
+                x: 0.5,
+                xanchor: 'center'
+              },
+
+              annotations: [
+                {
+                  text: `<b>Lat = ${latStr}, Lon = ${lonStr}</b>`,
+                  font: { size: 11, color: '#555' },
+                  showarrow: false,
+                  x: 0.6,
+                  y: 1.00,
+                  xref: 'paper',
+                  yref: 'paper',
+                  xanchor: 'right',
+                  yanchor: 'top'
+                }
+              ],
+              
+              xaxis: {
+                title: {
+                  text: `<b>Date</b>`,
+                  font: { size: 11, family: 'Arial Black', color: '#000' }
+                },
+                tickfont: { size: 10},
+                type: 'category', //donot change this to type: 'date', this has clash regarding the ISO strings types.
+                tickangle: -45,
+                automargin: true
+              },
+              yaxis: {
+                title: {
+                  text: `<b>Concentration (${data.unit})</b>`,
+                  font: { size: 11, family: 'Arial Black', color: '#000' }
+                },
+                tickfont: { size: 10},
+                tickformat: '.4g',     // keep small values visible on the axis
+                hoverformat: '.4g',
+                automargin: true
+              },
+              legend: {
+                orientation: 'h',
+                x: 0.5,
+                y: 1.03,          // Just below the title
+                xanchor: 'center',
+                yanchor: 'bottom',
+                font: { size: 9, family: 'Arial' },
+                bgcolor: 'rgba(0,0,0,0)',
+                borderwidth: 0,
+                // Optional: add some padding for clarity
+                // pad: { t: 5, b: 5 }
+              },
+              hovermode: 'x unified',
+              shapes: [
+                {
+                  type: 'rect',
+                  xref: 'paper',
+                  yref: 'paper',
+                  x0: 0,
+                  y0: 0,
+                  x1: 1,
+                  y1: 1,
+                  line: { color: 'black', width: 1 },
+                  fillcolor: 'rgba(0,0,0,0)',
+                  layer: 'below'
+                }
+              ]
+            };
+
+            const config = {
+              responsive: true,
+              displayModeBar: true,
+              displaylogo: false,
+              modeBarButtonsToRemove: [],
+              modeBarButtonsToAdd: [{
+                name: 'Download CSV',
+                icon: Plotly.Icons.disk, // or choose a custom icon
+                click: function (gd) {
+                  if (latestData) {
+                    downloadCSV(latestData);
+                  }
+                }
+              }],
+              toImageButtonOptions: {
+                format: 'png',
+                filename: 'concentration_chart',
+                height: 300,
+                width: 400,
+                scale: 2
+              }
+            };
+
+            Plotly.newPlot('chart1', traces, layout, config);
+          }
+          
+          // Chart II
+          function renderRegionTimeSeriesChart(data, pollutant, unit, minLimit, maxLimit) {
+            if (!data || data.length === 0) {
+              console.warn("No data to plot.");
+              return;
+            }
+
+            // Step 1: Group and average values by date
+            const grouped = {};
+            data.forEach(d => {
+              if (!grouped[d.date]) grouped[d.date] = [];
+              grouped[d.date].push(d.value);
+            });
+
+            const averagedData = Object.entries(grouped).map(([date, values]) => ({
+              date,
+              value: values.reduce((acc, val) => acc + val, 0) / values.length
+            })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const dates = averagedData.map(d => d.date);
+            const values = averagedData.map(d => d.value);
+
+            // Step 2: Compute Y axis limits
+            const minY = Math.min(...values);
+            const maxY = Math.max(...values);
+            const buffer = (maxY - minY) * 0.05 || 1;
+            const yMin = Math.max(0, minY - buffer);
+            const yMax = maxY + buffer;
+
+            // Step 3: Plot data trace
+            const trace = {
+              x: dates,
+              y: values,
+              mode: 'lines+markers',
+              type: 'scatter',
+              name: `${pollutant}`,
+              line: {
+                color: 'rgba(31, 119, 180, 1)',
+                width: 2
+              },
+              marker: {
+                size: 6,
+                color: 'red',
+                line: {
+                  width: 1,
+                  color: 'darkred'
+                }
+              },
+              hovertemplate: '%{x}<br><b>%{y:.4g} ' + unit + '</b><extra></extra>'
+            };
+
+            // Step 4: Define layout with reference lines
+            const layout = {
+              title: {
+                text: `<b>Regional Mean Concentration of ${pollutant} Over Time</b>`,
+                font: { size: 16, family: 'Arial, sans-serif', color: '#333' }
+              },
+              xaxis: {
+                title: { text: 'Date', font: { size: 13 } },
+                type: 'date',
+                tickformat: '%b %d<br>%Y',
+                tickangle: -45,
+                showgrid: true,
+                gridcolor: '#eaeaea',
+                tickmode: 'array',
+                tickvals: dates,
+                ticktext: dates
+              },
+              yaxis: {
+                title: { text: `${pollutant} (${unit})`, font: { size: 13 } },
+                range: [yMin, yMax],
+                showgrid: true,
+                gridcolor: '#eaeaea',
+                tickformat: '.4g',     // keep small values visible on the axis
+                hoverformat: '.4g'
+              },
+              margin: { t: 70, r: 40, b: 80, l: 70 },
+              plot_bgcolor: '#f9f9f9',
+              paper_bgcolor: '#fff',
+              hovermode: 'x unified',
+              legend: {
+                orientation: 'h',
+                x: 0.5,
+                xanchor: 'center',
+                y: -0.3
+              },
+              shapes: [
+                // Border box
+                {
+                  type: 'rect',
+                  xref: 'paper',
+                  yref: 'paper',
+                  x0: 0,
+                  y0: 0,
+                  x1: 1,
+                  y1: 1,
+                  line: { color: 'black', width: 1 },
+                  fillcolor: 'rgba(0,0,0,0)'
+                },
+                // Lower limit line
+                {
+                  type: 'line',
+                  xref: 'x',
+                  yref: 'y',
+                  x0: dates[0],
+                  x1: dates[dates.length - 1],
+                  y0: minLimit,
+                  y1: minLimit,
+                  line: { color: 'green', width: 2, dash: 'dot' }
+                },
+                // Upper limit line
+                {
+                  type: 'line',
+                  xref: 'x',
+                  yref: 'y',
+                  x0: dates[0],
+                  x1: dates[dates.length - 1],
+                  y0: maxLimit,
+                  y1: maxLimit,
+                  line: { color: 'red', width: 2, dash: 'dot' }
+                }
+              ],
+              annotations: [
+                {
+                  // Max label (above the red line)
+                  xref: 'x',
+                  yref: 'y',
+                  x: dates[dates.length - 1],
+                  y: maxLimit,
+                  xanchor: 'right',
+                  yanchor: 'bottom',
+                  text: `Max (${formatSmart(maxLimit)})<br>(95% Confidence Interval)`,
+                  showarrow: false,
+                  font: { color: 'red', size: 12 },
+                  bgcolor: 'rgba(0,0,0,0)',       // fully transparent background
+                  bordercolor: 'rgba(0,0,0,0)'    // no border
+                },
+                {
+                  // Min label (below the green line)
+                  xref: 'x',
+                  yref: 'y',
+                  x: dates[dates.length - 1],
+                  y: minLimit,
+                  xanchor: 'right',
+                  yanchor: 'top',
+                  text: `Min (${formatSmart(minLimit)})<br>(95% Confidence Interval)`,
+                  showarrow: false,
+                  font: { color: 'green', size: 12 },
+                  bgcolor: 'rgba(0,0,0,0)',       // fully transparent background
+                  bordercolor: 'rgba(0,0,0,0)'    // no border
+                }
+              ]
+
+            };
+
+            // Step 5: CSV Export Button
+            const csvExportButton = {
+              name: 'Download CSV',
+              icon: Plotly.Icons.disk,
+              click: function () {
+                let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                csvContent += "Date,Value,Pollutant,Unit\n";
+                averagedData.forEach(row => {
+                  csvContent += `${row.date},${row.value},${pollutant},${unit}\n`;
+                });
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `TimeSeries_${pollutant}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            };
+
+            // Step 6: Render chart
+            Plotly.newPlot('chart2', [trace], layout, {
+              responsive: true,
+              modeBarButtonsToAdd: [[csvExportButton]]
+            });
+          }
+
+        // Debounce for window size input
+        let debounceTimer;
+        document.getElementById("window-size").addEventListener("input", () => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            if (latestData) {
+              renderConcentrationChart(latestData, latestLat, latestLon);
+            }
+          }, 300); // debounce delay 300ms
+        });
+
+        // 3. Handle map click
+        
+        leafletMap.on('click', async function (e) {
+          console.log("Clicked_on_screen");
+          document.getElementById("modal-header").classList.remove("hidden");
+          const lat = e.latlng.lat;
+          const lon = e.latlng.lng;
+          const buffer = document.getElementById("buffer").value;
+          const pollutant = document.getElementById("pollutant").value;
+          const startDate = document.getElementById("start_date").value;
+          const endDate = document.getElementById("end_date").value;
+          
+          try {
+            const res = await fetch(`/api/get-time-series?lat=${lat}&lon=${lon}&buffer=${buffer}&pollutant=${pollutant}&start_date=${startDate}&end_date=${endDate}`);
+            console.log("Clicked_on_screen_2");
+            const data = await res.json();
+
+            if (data.error) {
+              console.warn(data.error);
+              return;
+            }
+
+            renderConcentrationChart(data, lat, lon);
+
+            document.getElementById('concentration-modal').classList.remove('hidden');
+
+          } catch (err) {
+            console.error('Error fetching data:', err);
+          }
+        });
+
+        // 4. Modal close logic
+        document.getElementById('close-modal').addEventListener('click', () => {
+          document.getElementById('concentration-modal').classList.add('hidden');
+        });
+
+        // 5. Close on ESC
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            document.getElementById('concentration-modal').classList.add('hidden');
+          }
+        });
+
+        const latlonPopup = L.popup({ closeButton: false, autoPan: false });
+
+        imageOverlay.on('mousemove', function (e) {
+          const lat = e.latlng.lat.toFixed(4);
+          const lon = e.latlng.lng.toFixed(4);
+
+          latlonPopup
+            .setLatLng(e.latlng)
+            .setContent(`<b>Lat:</b> ${lat}<br><b>Lon:</b> ${lon}`)
+            .openOn(map);
+        });
+
+        imageOverlay.on('mouseout', function () {
+          map.closePopup(latlonPopup);
+        });
+
+
+    });// DOM Content End
+  </script>
+  
+
+  <!-- Tab 2 needs to works -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  console.log("DOM fully loaded and parsed");
+
+  // === Global Variables ===
+  let cityGeoLayer = null;
+  let stateGeoLayer = null;
+  let currentPollutantLayer = null;
+
+  //const leafletMap = window.leafletMap; // Ensure it's available globally
+
+  // === DOM Elements ===
+  const showBtn1 = document.getElementById('show-aqi-btn-1');
+  const showBtn2 = document.getElementById('show-aqi-btn-2');
+  const cityDropdown = document.getElementById('city-2');
+  const stateDropdown = document.getElementById('state-2');
+  const pollutantDropdown = document.getElementById('pollutant-2');
+  const resetBtn2 = document.getElementById('reset-dropdown-btn-2');
+  const spinner = document.getElementById('loading-spinner-2');
+  const buttonText = document.getElementById('button-text-aqi');
+  const chartDiv = document.getElementById('chart2');
+  const legend = document.getElementById('legend');
+  const startDateInput = document.getElementById('start_date-2');
+  const endDateInput = document.getElementById('end_date-2');
+  const checkboxes = document.querySelectorAll('#aqiForm input[type="checkbox"]');
+
+  // === Utils ===
+  function setDateDefaults() {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const oneMonthAgo = new Date(yesterday);
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    endDateInput.value = fmt(yesterday);
+    startDateInput.value = fmt(oneMonthAgo);
+  }
+
+  function removeLayer(layer) {
+    if (layer) {
+      leafletMap.removeLayer(layer);
+    }
+    return null;
+  }
+
+  function clearAllLayers() {
+    cityGeoLayer = removeLayer(cityGeoLayer);
+    stateGeoLayer = removeLayer(stateGeoLayer);
+    currentPollutantLayer = removeLayer(currentPollutantLayer);
+  }
+
+  async function loadGeoShape(type, name, color) {
+  const fileName = type === "city" ? name.toUpperCase() : name;
+  const url = `/static/${type}/${fileName}.geojson`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${type} shape not found`);
+
+    const geojson = await res.json();
+    clearAllLayers();
+
+    const layer = L.geoJSON(geojson, {
+      style: { color, weight: 2, opacity: 0.8, fillOpacity: 0 }
+    }).addTo(leafletMap);
+
+    leafletMap.fitBounds(layer.getBounds());
+
+    if (type === "city") {
+      cityGeoLayer = layer;
+    } else {
+      stateGeoLayer = layer;
+    }
+  } catch (err) {
+    console.error("GeoJSON error:", err);
+    alert("Failed to load shape: " + err.message);
+  }
+}
+
+
+  function resetUI() {
+    spinner.classList.add('hidden');
+    buttonText.textContent = 'Show Species AQI';
+    // buttonText.textContent = 'Show Cumulative AQI'
+    showBtn1.disabled = false;
+    showBtn2.disabled = false;
+  }
+
+  resetBtn2.addEventListener('click', () => {
+    console.log("Reset clicked");
+    clearAllLayers();
+    Plotly.purge('chart2');
+    Plotly.purge('chart1');
+    chartDiv.innerHTML = '';
+    legend.innerHTML = '';
+
+    [cityDropdown, stateDropdown, pollutantDropdown].forEach(dd => {
+      dd.selectedIndex = 0;
+      dd.disabled = false;
+    });
+
+    checkboxes.forEach(cb => cb.checked = false);
+    resetUI();
+  });
+
+  function updateLegend(min, max, unit, labels) {
+    if (!legend) return;
+    const pollutant = pollutantDropdown.value || 'Pollutant';
+    if (labels?.length > 0) {
+      const colors = ['#00ff00', '#ffff00', '#ff9933', '#ff0000', '#990066', '#990000'];
+      let html = `<h4>Air Quality Index: ${pollutant}</h4><div class="legend-hml">`;
+      labels.forEach((label, i) => {
+        const color = colors[i % colors.length];
+        html += `<div><span class="legend-box" style="background:${color};"></span><span class="legend-label">${label}</span></div>`;
+      });
+      html += `</div>`;
+      legend.innerHTML = html;
+    } else {
+      legend.innerHTML = `
+        <h4>Concentration of ${pollutant}</h4>
+        <div class="gradient2"></div>
+        <div class="labels">
+          <span>${min}${unit}</span>
+          <span>${max}${unit}</span>
+        </div>`;
+    }
+  }
+
+function renderTimeSeriesChart(data,unit) {
+  console.log("Incoming data:", data); // Should show the date-value object
+
+  if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+    chartDiv.innerHTML = '<p>No time series data available.</p>';
+    return;
+  }
+
+  const dates = Object.keys(data).sort(); // Sort dates
+  console.log("dast:",dates);
+  const values = dates.map(date => data[date]);
+  console.log("bal:",values)
+
+  Plotly.newPlot('chart2', [{
+    x: dates,
+    y: values,
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: pollutant,
+    line: {
+      color: 'blue' // customize this
+      },
+      marker: {
+        color: 'red',
+        size: 6 // optional: adjust point size
+      }
+  }], {
+    title: `Cumulative Pollutants AQI `,
+    xaxis: {
+    title: 'Date',
+    tickformat: '%Y-%m-%d' ,
+    type: 'category',
+	tickangle: -45,
+    showline: true,       // Show x-axis line
+    mirror: 'all',        // Mirror the line on top
+    linecolor: 'black',
+    linewidth: 1
+  },
+    yaxis: { title: `AQI` ,
+    showline: true,       // Show x-axis line
+    mirror: 'all',        // Mirror the line on top
+    linecolor: 'black',
+    linewidth: 1}
+  }, {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToAdd: [{
+      name: 'Download CSV',
+      icon: Plotly.Icons.disk,
+      click: function (gd) {
+        if (data) {
+          downloadCSV2(data);
+        }
+      }
+    }],
+    toImageButtonOptions: {
+      format: 'png',
+      filename: 'Individual_Timeseries_chart',
+      height: 300,
+      width: 400,
+      scale: 2
+    }
+});
+}
+    
+function downloadCSV2(data) {
+  if (!data || typeof data !== "object") return;
+
+  const dates = Object.keys(data).sort();
+  const csvRows = [["Date", "AQI"]];
+
+  dates.forEach(date => {
+    csvRows.push([date, data[date]]);
+  });
+
+  const csvContent = csvRows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "AQI_data.csv";
+  link.click();
+}
+    function downloadCSV(data) {
+      if (!data || !data.series || data.series.length === 0) return;
+
+      const csvRows = [['Date', `Concentration (${data.unit})`]];
+      data.series.forEach(row => {
+        csvRows.push([row.date, row.aqi]);
+      });
+
+      const csvContent = csvRows.map(e => e.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'concentration_data.csv');
+      link.click();
+    }
+
+
+function renderTimeSeriesChart3(timeSeries, pollutant, unit = 'AQI') {
+      const chartDiv = document.getElementById('chart1');
+
+      if (!Array.isArray(timeSeries) || timeSeries.length === 0) {
+        chartDiv.innerHTML = '<p class="text-center text-gray-600 mt-4">No time series data available.</p>';
+        return;
+      }
+       const csvExportButton = {
+              name: 'Download CSV',
+              icon: Plotly.Icons.disk,
+              click: function () {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "Date,Value,Pollutant,Unit\n";
+                averagedData.forEach(row => {
+                  csvContent += `${row.date},${row.aqi},${band},${unit}\n`;
+                });
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `TimeSeries_${pollutant}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            };
+
+      Plotly.newPlot(chartDiv, [{
+        x: timeSeries.map(d => d.date),
+        y: timeSeries.map(d => d.aqi),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: pollutant,
+        line: {
+        color: 'blue' // customize this
+        },
+        marker: {
+          color: 'red',
+          size: 6 // optional: adjust point size
+        }
+      }], {
+        title: `Time Series of ${pollutant} (${unit})`,
+        xaxis: {
+        title: 'Date',
+        tickformat: '%Y-%m-%d' ,
+        type: 'category',
+		tickangle: -45,
+        showline: true,       // Show x-axis line
+        mirror: 'all',        // Mirror the line on top
+        linecolor: 'black',
+        linewidth: 1
+      },
+        yaxis: { title: `${unit}` ,
+        showline: true,       // Show x-axis line
+        mirror: 'all',        // Mirror the line on top
+        linecolor: 'black',
+        linewidth: 1}
+      });
+    }
+
+function renderTimeSeriesChart4(timeSeries, pollutant, unit = 'AQI') {
+  const chartDiv = document.getElementById('chart1');
+
+  if (!Array.isArray(timeSeries) || timeSeries.length === 0) {
+    chartDiv.innerHTML = '<p class="text-center text-gray-600 mt-4">No time series data available.</p>';
+    return;
+  }
+
+  const csvExportButton = {
+    name: 'Download CSV',
+    icon: Plotly.Icons.disk,
+    click: function () {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      value = timeSeries.value
+      csvContent += "Date,Pollutant,Concentration,AQI,Unit\n";
+      timeSeries.forEach(row => {
+        csvContent += `${row.date},${pollutant},${row.value},${row.aqi},${unit}\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `TimeSeries_${pollutant}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const config = {
+    modeBarButtonsToAdd: [csvExportButton],
+    displaylogo: false
+  };
+
+  Plotly.newPlot(chartDiv, [{
+    x: timeSeries.map(d => d.date),
+    y: timeSeries.map(d => d.aqi),
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: pollutant,
+    line: { color: 'blue' },
+    marker: { color: 'red', size: 6 }
+  }], {
+    title: `Time Series of ${pollutant} (${unit})`,
+    xaxis: {
+      title: 'Date',
+      tickformat: '%Y-%m-%d',
+      type: 'date',
+	  tickangle: -45,
+      showline: true,
+      mirror: 'all',
+      linecolor: 'black',
+      linewidth: 1
+    },
+    yaxis: {
+      title: `${unit}`,
+      showline: true,
+      mirror: 'all',
+      linecolor: 'black',
+      linewidth: 1
+    }
+  }, config);
+}
+
+/// New_changed /////
+function renderTimeSeriesChart2(timeSeriesMap, unit = 'AQI') {
+  const chartDiv = document.getElementById('chart1');
+
+  if (!timeSeriesMap || Object.keys(timeSeriesMap).length === 0) {
+    chartDiv.innerHTML = '<p class="text-center text-gray-600 mt-4">No time series data available.</p>';
+    return;
+  }
+
+  const traces = Object.entries(timeSeriesMap).map(([pollutant, data]) => {
+    const parsedData = data.map(d => {
+      if (Array.isArray(d) && d.length === 2) {
+        return { date: d[0], aqi: d[1] };
+      }
+      return d;
+    });
+
+    return {
+      x: parsedData.map(d => d.date),
+      y: parsedData.map(d => d.aqi),
+      type: 'scatter',
+      mode: 'markers',
+      name: pollutant,
+        };
+      });
+
+  // Prepare for CSV download
+  const latestData = {
+    unit: unit,
+    series: Object.entries(timeSeriesMap).flatMap(([pollutant, data]) => {
+      return data.map(d => {
+        const obj = Array.isArray(d) ? { date: d[0], aqi: d[1] } : d;
+        return { pollutant, ...obj };
+      });
+    })
+  };
+
+  const config = {
+    responsive: true,
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToAdd: [{
+      name: 'Download CSV',
+      icon: Plotly.Icons.disk,
+      click: function (gd) {
+        if (latestData) {
+          downloadCSV(latestData);
+        }
+      }
+    }],
+    toImageButtonOptions: {
+      format: 'png',
+      filename: 'Aqi_Timeseries_chart',
+      height: 300,
+      width: 400,
+      scale: 2
+    }
+  };
+
+  Plotly.newPlot(chartDiv, traces, {
+    title: `Individual Pollutant(s) AQI`,
+    xaxis: {
+      title: 'Date',
+      tickformat: '%Y-%m-%d',
+      type: 'category',
+	  tickangle: -45,
+      showline: true,
+      mirror: 'all',
+      linecolor: 'black',
+      linewidth: 1
+    },
+    yaxis: {
+      title: `Concentration`,
+      showline: true,
+      mirror: 'all',
+      linecolor: 'black',
+      linewidth: 1
+    }
+  }, config);
+}
+
+
+  async function fetchAndDisplayAQI1({ city, state, pollutant, endpoint}) {
+    spinner.classList.remove('hidden');
+    buttonText.textContent = 'Loading…';
+    clearAllLayers();
+
+    if (city) await loadGeoShape('city', city, 'blue');
+    else if (state) await loadGeoShape('state', state, 'red');
+
+    const query = new URLSearchParams({
+      start_date: startDateInput.value,
+      end_date: endDateInput.value,
+      pollutant: pollutantDropdown.value,
+      city,
+      state
+    }).toString();
+    console.log(pollutant)
+    try {
+      const res = await fetch(`${endpoint}?${query}`);
+      if (!res.ok) throw new Error("API request failed Due to not having data on the requested dates");
+      const data = await res.json();
+
+      if (!data.tile_url) {
+        alert('Tile layer URL missing from response.');
+        return resetUI();
+      }
+      console.log("API response:", data);
+      currentPollutantLayer = L.tileLayer(data.tile_url, {
+        opacity: 0.8,
+        minZoom: 1,
+        maxZoom: 1000,
+        attribution: '@ Google Earth Engine',
+      }).addTo(leafletMap);
+      currentPollutantLayer.on('load', resetUI);
+
+      updateLegend(parseFloat(data.min_value), parseFloat(data.max_value), data.unit, data.legend_labels);
+      renderTimeSeriesChart4(data.timeseries, pollutant, 'AQI')
+    } catch (err) {
+      console.error("Fetch error:", err);
+      alert("Error fetching AQI data: " + err.message);
+      resetUI();
+    }
+  }
+
+
+  
+ async function fetchAndDisplayAQI2({ city, state, pollutants, endpoint}) {
+    spinner.classList.remove('hidden');
+    buttonText.textContent = 'Loading…';
+    clearAllLayers();
+
+    if (city) await loadGeoShape('city', city, 'blue');
+    else if (state) await loadGeoShape('state', state, 'red');
+
+    const query = new URLSearchParams({
+      start_date: startDateInput.value,
+      end_date: endDateInput.value,
+      pollutant: pollutants.join(','),
+      city,
+      state
+    }).toString();
+    console.log(pollutants)
+    try {
+      const res = await fetch(`${endpoint}?${query}`);
+      if (!res.ok) throw new Error("API request failed");
+      const data = await res.json();
+
+      if (!data.tile_url) {
+        alert('Tile layer URL missing from response.');
+        return resetUI();
+      }
+      console.log("API response:", data);
+      currentPollutantLayer = L.tileLayer(data.tile_url, {
+        opacity: 0.8,
+        minZoom: 1,
+        maxZoom: 1000,
+        attribution: '@ Google Earth Engine',
+      }).addTo(leafletMap);
+      currentPollutantLayer.on('load', resetUI);
+
+      updateLegend(parseFloat(data.min_value), parseFloat(data.max_value), data.unit, data.legend_labels);
+      renderTimeSeriesChart2(data.indv_pult, pollutant, 'AQI')
+      renderTimeSeriesChart(data.Final_chart, pollutant, 'AQI')
+      console.log(Object.keys(data.Final_chart)); 
+      console.log(Object.values(data.Final_chart)); 
+    } catch (err) {
+      console.error("Fetch error:", err);
+      alert("Error fetching AQI data: " + err.message);
+      resetUI();
+    }
+  }
+
+  function fetchAndDisplaychart({ city, state, pollutants, endpoint }) {
+  const url = new URL(endpoint, window.location.origin);
+  url.searchParams.append('city', city);
+  url.searchParams.append('state', state);
+  url.searchParams.append('pollutant', pollutants.join(','));
+  url.searchParams.append('start_date', document.getElementById('start_date-2').value);
+  url.searchParams.append('end_date', document.getElementById('end_date-2').value);
+
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        chartDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+        return;
+      }
+
+      if (data.line_plot) {
+        renderAQITimeSeries(data.line_plot);
+      }
+
+      if (data.pollutant_series) {
+        renderIndividualPollutants(data.pollutant_series);
+      }
+    })
+    .catch(err => {
+      chartDiv.innerHTML = `<p>Error: ${err.message}</p>`;
+    });
+}
+
+  function validateInputs(mode = 'multi') {
+    const selectedPollutants = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+    const city = cityDropdown.value;
+    const state = stateDropdown.value;
+    const start = startDateInput.value;
+    const end = endDateInput.value;
+
+    if (mode === 'multi') {
+      if (
+        !selectedPollutants.includes('PM2.5') &&
+        !selectedPollutants.includes('PM10')
+      ) {
+        alert("Please select at least PM2.5 or PM10.");
+        resetUI();
+        return null;
+      }
+      if (selectedPollutants.length < 3) {
+        alert("Please select at least three pollutants.");
+        resetUI();
+        return null;
+      }
+    }
+
+
+    if (!city && !state) {
+      alert("Please select a city or a state.");
+      resetUI();
+      return null;
+    }
+
+    return { city, state, selectedPollutants };
+  }
+
+  // === Button Handlers ===
+  showBtn1.addEventListener('click', () => {
+    const pollutant = pollutantDropdown.value;
+    const city = cityDropdown.value;
+    const state = stateDropdown.value;
+
+    if((!city && !state)){
+      alert("Please select a region.");
+      return resetUI();
+    }
+    else if (!pollutant) {
+      alert("Please select a pollutant.");
+      return resetUI();
+    }
+
+    fetchAndDisplayAQI1({
+      city,
+      state,
+      pollutant: pollutant,
+      endpoint: city ? '/api/get-aqi-pollutant-city' : '/api/get-aqi-pollutant-state'
+    });
+  });
+
+
+  
+
+  // === Dropdown Mutual Exclusivity ===
+    showBtn2.addEventListener('click', () => {
+      const result = validateInputs('multi');
+      if (!result) return;
+
+      // Call both endpoint
+
+      fetchAndDisplayAQI2({
+        city: result.city,
+        state: result.state,
+        pollutants: result.selectedPollutants,
+        endpoint: '/api/show-final-aqi'
+      });
+    });
+
+ 
+ 
+ 
+  function updateDropdownStates() {
+    stateDropdown.disabled = !!cityDropdown.value;
+    cityDropdown.disabled = !!stateDropdown.value;
+  }
+
+  cityDropdown.addEventListener('change', updateDropdownStates);
+  stateDropdown.addEventListener('change', updateDropdownStates);
+
+  // === Button Enabling Logic ===
+  function updateShowBtn1State() {
+    showBtn1.disabled = Array.from(checkboxes).some(cb => cb.checked);
+  }
+
+  function updateShowBtn2State() {
+    showBtn2.disabled = pollutantDropdown.value !== '';
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateShowBtn1State));
+  pollutantDropdown.addEventListener('change', updateShowBtn2State);
+
+  // === Tabs Cleanup ===
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tab = e.target.getAttribute('data-tab');
+      if (tab !== 'tab1' && typeof clearAllMapLayersTab1 === 'function') {
+        clearAllMapLayersTab1();
+      }
+      Plotly.purge('chart2');
+      Plotly.purge('chart1');
+      chartDiv.innerHTML = '';
+    });
+  });
+
+  // === Initialization ===
+  setDateDefaults();
+  updateDropdownStates();
+  updateShowBtn1State();
+  updateShowBtn2State();
+});
+</script>
+ 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  let currentLayer = null;
+
+  const showBtn = document.getElementById('show');
+  const stateDropdown = document.getElementById('state-3');
+  const yearInput = document.getElementById('Year');
+  const causeDropdown = document.getElementById('Disease'); 
+  const spinner4 = document.getElementById('loading-spinner-4'); 
+
+  function clearLayers() {
+    if (currentLayer) leafletMap.removeLayer(currentLayer);
+  }
+
+  // ---- COLOR SCALE ----
+  function getColor(value) {
+    if (value < 10) return "#ffe5e5";
+    if (value <= 25) return "#ffb3b3";
+    if (value <= 50) return "#ff8080";
+    if (value <= 75) return "#ff4d4d";
+    return "#cc0000";
+  }
+
+  function getLabel(value) {
+    if (value < 10) return "Very Low: <10";
+    if (value <= 25) return "Low: 10–25";
+    if (value <= 50) return "Moderate: 26–50";
+    if (value <= 75) return "High: 51–75";
+    return "Very High: >75";
+  }
+
+  // ---- LEGEND ----
+  let legend = L.control({ position: "bottomright" });
+
+  function updateLegend() {
+      if (legend._map) {
+          legend.remove();
+      }
+
+      legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "info legend");
+
+        div.innerHTML = `
+          <h4><b>${stateDropdown.value} Respiratory Mortality Rate (per 100,000 / year)</b></h4>
+          <i style="background:#ffe5e5"></i> Very Low : &lt;10 <br>
+          <i style="background:#ffb3b3"></i> Low : 10–25 <br>
+          <i style="background:#ff8080"></i> Moderate : 26–50 <br>
+          <i style="background:#ff4d4d"></i> High : 51–75 <br>
+          <i style="background:#cc0000"></i> Very High : &gt;75 <br>
+        `;
+
+        return div;
+      };
+
+      legend.addTo(leafletMap);
+  }
+
+  // ---- FETCH API ----
+  async function fetchAndDisplayHealth(state, year, cause) {
+    spinner4.classList.remove('hidden');
+    clearLayers();
+
+    try {
+      const res = await fetch(
+        `/api/get-aqi-health-state?state=${encodeURIComponent(state)}&year=${year}&cause=${encodeURIComponent(cause)}`
+      );
+
+      if (!res.ok) throw new Error("API request failed");
+
+      const data = await res.json();
+      console.log("API response:", data);
+
+      const value = parseFloat(data.value);
+      const color = getColor(value);
+
+      currentLayer = L.geoJSON(data.geometry, {
+        style: {
+          fillColor: color,
+          fillOpacity: 0.7,
+          color: "black",
+          weight: 2
+        }
+      }).addTo(leafletMap);
+
+      currentLayer.bindPopup(`
+        <b>${data.state} (${data.year})</b><br>
+        Value: ${value.toFixed(2)}<br>
+        Level: ${getLabel(value)}
+      `);
+
+      leafletMap.fitBounds(currentLayer.getBounds());
+      updateLegend();
+
+      return data; // ✅ RETURN DATA
+
+    } catch (err) {
+      alert(err.message);
+      return null;
+    } finally {
+      spinner4.classList.add('hidden');
+    }
+  }
+
+  // ---- CHART ----
+  function renderTimeSeriesChart(series) {
+    if (!series || Object.keys(series).length === 0) {
+      document.getElementById('chart2').innerHTML =
+        '<p>No series data available.</p>';
+      return;
+    }
+
+    const age = Object.keys(series).sort();
+    const values = age.map(a => series[a]);
+
+    Plotly.newPlot('chart2', [{
+      x: age,
+      y: values,
+      type: 'scatter',
+      mode: 'lines+markers',
+      line: { color: 'blue' },
+      marker: { color: 'red', size: 6 }
+    }], {
+      title: '<b>Age-wise Death Rate</b>',
+      xaxis: { title: 'Age', type: 'category' },
+      yaxis: { title: 'Death Rate' }
+    }, {
+      responsive: true,
+      displaylogo: false
+    });
+  }
+
+  function downloadCSV(series) {
+    if (!series || Object.keys(series).length === 0) return;
+
+    const csvRows = [['Age', 'Death Rate']];
+    Object.keys(series).forEach(age => {
+      csvRows.push([age, series[age]]);
+    });
+
+    const blob = new Blob(
+      [csvRows.map(r => r.join(',')).join('\n')],
+      { type: 'text/csv;charset=utf-8;' }
+    );
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'agewise_deaths.csv';
+    link.click();
+  }
+
+  // ---- BUTTON CLICK ----
+  showBtn.addEventListener("click", async function () {
+    const state = stateDropdown.value;
+    const year = yearInput.value;
+    const cause = causeDropdown.value;
+
+    if (!state || !year || !cause) {
+      alert("Select state, year and cause");
+      return;
+    }
+
+    const responseData = await fetchAndDisplayHealth(state, year, cause);
+    if (responseData && responseData.series) {
+      renderTimeSeriesChart(responseData.series);
+    }
+  });
+
+});
+</script>
+</body>
+</html>
