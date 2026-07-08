@@ -1,16 +1,18 @@
-ee
-flask
-flask-caching
+# --- Reference requirements for the AQI Flask app on Render ---
+# If your existing repo already has a working requirements.txt, keep it and only
+# make sure gunicorn + earthengine-api are present. These are the packages the
+# app imports.
+Flask
+Flask-Caching
 flask-cors
-gunicorn
-google-auth
 earthengine-api
+google-auth
+requests
 python-dotenv
-nltk
 pandas
-geopandas
 numpy
 plotly
+nltk
+geopandas
 shapely
-google-api-python-client
-
+gunicorn
